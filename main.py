@@ -19,7 +19,7 @@ iter.row("Помощь")
 
 if __name__ == '__main__':
 	MapPoints = []
-	with open(file, "r") as f:
+	with open(file, "r", encoding="utf8") as f:
 		buf = []
 		for s in f:
 			buf.append(s.strip("\n"))
