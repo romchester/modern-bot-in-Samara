@@ -2,6 +2,7 @@ class MapPoint():
 	caption: str
 	desc: str
 	imgURL: str
+	last_id: str = None
 	mapURL: str
 
 	def __init__(

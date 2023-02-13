@@ -2,6 +2,7 @@ from threading import Lock
 from telebot import types, TeleBot
 from telebot.util import quick_markup
 from MapPoint import *
+from os import path
 
 # https://t.me/SmrModernGuideBot
 # URL of photos is not local for speedup (using user cache)
@@ -12,7 +13,7 @@ userpos_lock: dict[int, Lock] = {}
 userpos: dict[int, int] = {}
 chat_user_accord: dict[int, int] = {}
 MapPoints: list[MapPoint] = []
-
+Warmed = False
 iter = types.ReplyKeyboardMarkup()
 iter.row('Идём дальше!')
 iter.row("Помощь")
@@ -28,7 +29,7 @@ if __name__ == '__main__':
 					MapPoint(
 						CAPTION = buf[0],
 						DESC = buf[1],
-						IMGURL = buf[2],
+						IMGURL = f"{path.curdir}/{buf[2]}",
 						MAPURL = buf[3]
 					)
 				)
@@ -65,10 +66,7 @@ def start(message: types.Message) -> None:
 @bot.message_handler(
 	content_types=['text'],
 	func=lambda message:
-		message.text.lower() == 'узнать про объекты' or
-		(message.text.lower() == 'идём дальше!' and
-		message.from_user.id in userpos.keys() and
-		userpos[message.from_user.id] < len(MapPoints))
+		message.text.lower() == 'узнать про объекты'
 )
 def travel_begin(message: types.Message):
 	global userpos, userpos_lock
@@ -82,12 +80,43 @@ def travel_begin(message: types.Message):
 			"callback_data": message.chat.id
 		}
 	}, row_width=1)
-	bot.send_photo(
-		message.chat.id,
-		MapPoints[userpos[message.from_user.id]].imgURL,
-		MapPoints[userpos[message.from_user.id]].caption,
-		reply_markup=markup
-	)
+	if userpos[message.from_user.id] >= len(MapPoints):
+		return travel_end(message)
+	markup = quick_markup(
+	{
+		"Открыть на карте":
+		{
+			"url": MapPoints[userpos[message.from_user.id]].mapURL ,
+			"callback_data": message.chat.id
+		}
+	}, row_width=1)
+	while True:
+		try:
+			if (MapPoints[userpos[message.from_user.id]].last_id):
+				msg_img = bot.send_photo(
+					message.chat.id,
+					MapPoints[userpos[message.from_user.id]].last_id,
+					MapPoints[userpos[message.from_user.id]].caption,
+					reply_markup=markup
+				)
+				MapPoints[userpos[message.from_user.id]].last_id = msg_img.photo[-1].file_id
+			else:
+				with open(MapPoints[userpos[message.from_user.id]].imgURL, "rb") as p:
+					msg_img = bot.send_photo(
+						message.chat.id,
+						types.InputFile(p),
+						MapPoints[userpos[message.from_user.id]].caption,
+						reply_markup=markup
+					)
+					MapPoints[userpos[message.from_user.id]].last_id = msg_img.photo[-1].file_id
+			break
+		except Exception as e:
+			# print(e)
+			if userpos[message.from_user.id] >= len(userpos):
+				userpos[message.from_user.id] = len(MapPoints) - 1 
+			else:
+				userpos[message.from_user.id]
+			print(f"Retry \"{MapPoints[userpos[message.from_user.id]].caption}\"")
 	bot.send_message(
 		message.chat.id,
 		MapPoints[userpos[message.from_user.id]].desc,
@@ -121,6 +150,8 @@ def travel_reset(message: types.Message):
 def travel_next(message: types.Message):
 	global userpos, userpos_lock
 	userpos_lock[message.from_user.id].acquire()
+	if userpos[message.from_user.id] >= len(MapPoints):
+		return travel_end(message)
 	markup = quick_markup(
 	{
 		"Открыть на карте":
@@ -129,12 +160,33 @@ def travel_next(message: types.Message):
 			"callback_data": message.chat.id
 		}
 	}, row_width=1)
-	bot.send_photo(
-		message.chat.id,
-		MapPoints[userpos[message.from_user.id]].imgURL,
-		MapPoints[userpos[message.from_user.id]].caption,
-		reply_markup=markup
-	)
+	while True:
+		try:
+			if (MapPoints[userpos[message.from_user.id]].last_id):
+				msg_img = bot.send_photo(
+					message.chat.id,
+					MapPoints[userpos[message.from_user.id]].last_id,
+					MapPoints[userpos[message.from_user.id]].caption,
+					reply_markup=markup
+				)
+				MapPoints[userpos[message.from_user.id]].last_id = msg_img.photo[-1].file_id
+			else:
+				with open(MapPoints[userpos[message.from_user.id]].imgURL, "rb") as p:
+					p.seek(0);
+					msg_img = bot.send_photo(
+						message.chat.id,
+						types.InputFile(p),
+						MapPoints[userpos[message.from_user.id]].caption,
+						reply_markup=markup
+					)
+					MapPoints[userpos[message.from_user.id]].last_id = msg_img.photo[-1].file_id
+			break
+		except Exception as e:
+			if userpos[message.from_user.id] >= len(MapPoints):
+				userpos[message.from_user.id] = len(MapPoints) - 1 
+			else:
+				userpos[message.from_user.id]
+			print(f"Retry \"{MapPoints[userpos[message.from_user.id]].caption}\"")
 	bot.send_message(
 		message.chat.id,
 		MapPoints[userpos[message.from_user.id]].desc,
@@ -142,6 +194,13 @@ def travel_next(message: types.Message):
 	)
 	userpos[message.from_user.id] += 1
 	userpos_lock[message.from_user.id].release()
+
+	if not Warmed:
+		travel_next.warmed = True
+		for p in MapPoints:
+			travel_next.warmed = travel_next.warmed and p.last_id != None
+		if travel_next.warmed:
+			print("Warmed")
 
 @bot.message_handler(
 	content_types=['text'],
@@ -232,5 +291,9 @@ def err404(message: types.Message):
 	)
 
 if __name__ == '__main__':
-	print("Bot started")
-	bot.infinity_polling(logger_level=3)
+	print("Bot started\nWarming up")
+	try:
+		bot.infinity_polling(logger_level=3)
+	except KeyboardInterrupt:
+		for u in chat_user_accord.keys():
+			bot.send_message(u, "В данный момент бот был отключён для обслуживания, но скоро возбновит работу")
