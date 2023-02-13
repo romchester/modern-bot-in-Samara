@@ -195,12 +195,14 @@ def travel_next(message: types.Message):
 	userpos[message.from_user.id] += 1
 	userpos_lock[message.from_user.id].release()
 
+	global Warmed
 	if not Warmed:
 		travel_next.warmed = True
 		for p in MapPoints:
 			travel_next.warmed = travel_next.warmed and p.last_id != None
 		if travel_next.warmed:
 			print("Warmed")
+			Warmed = True
 
 @bot.message_handler(
 	content_types=['text'],
