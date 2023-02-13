@@ -4,7 +4,7 @@ from telebot.util import quick_markup
 from MapPoint import *
 
 # https://t.me/SmrModernGuideBot
-# URL of photos is not local for speedup (using user cache)
+# save file_id for speedup (warmup period)
 
 bot: TeleBot = TeleBot('5909930778:AAF4IKk3PqYiTq9hTqQZnr7-ZUAXBttkkAk')
 file = 'data.txt'
