@@ -1,9 +1,9 @@
 class MapPoint():
-	caption: str
-	desc: str
-	imgURL: str
-	last_id: str = None
-	mapURL: str
+	caption: str = str()
+	desc: str = str()
+	imgURL: str = str()
+	last_id: str = str()
+	mapURL: str = str()
 
 	def __init__(
 		self, 

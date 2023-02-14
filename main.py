@@ -3,6 +3,8 @@ from telebot import types, TeleBot
 from telebot.util import quick_markup
 from MapPoint import *
 from os import path
+from time import sleep
+from typing import List, Dict
 
 # https://t.me/SmrModernGuideBot
 # save file_id for speedup (warmup period)
@@ -12,7 +14,7 @@ file = 'data.txt'
 userpos_lock: dict[int, Lock] = {}
 userpos: dict[int, int] = {}
 chat_user_accord: dict[int, int] = {}
-MapPoints: list[MapPoint] = []
+MapPoints: List[MapPoint] = []
 Warmed = False
 iter = types.ReplyKeyboardMarkup()
 iter.row('Идём дальше!')
@@ -69,17 +71,7 @@ def start(message: types.Message) -> None:
 		message.text.lower() == 'узнать про объекты'
 )
 def travel_begin(message: types.Message):
-	global userpos, userpos_lock
-	
-	userpos_lock[message.from_user.id].acquire()
-	markup = quick_markup(
-	{
-		"Открыть на карте":
-		{
-			"url": MapPoints[userpos[message.from_user.id]].mapURL ,
-			"callback_data": message.chat.id
-		}
-	}, row_width=1)
+	global userpos
 	if userpos[message.from_user.id] >= len(MapPoints):
 		return travel_end(message)
 	markup = quick_markup(
@@ -117,13 +109,13 @@ def travel_begin(message: types.Message):
 			else:
 				userpos[message.from_user.id]
 			print(f"Retry \"{MapPoints[userpos[message.from_user.id]].caption}\"")
+			sleep(2)
 	bot.send_message(
 		message.chat.id,
 		MapPoints[userpos[message.from_user.id]].desc,
 		reply_markup=iter
 	)
 	userpos[message.from_user.id] += 1
-	userpos_lock[message.from_user.id].release()
 
 @bot.message_handler(
 	func=lambda message: message.text.lower() == 'сброс маршрута'
@@ -148,8 +140,7 @@ def travel_reset(message: types.Message):
 		userpos[message.from_user.id] < len(MapPoints)
 )
 def travel_next(message: types.Message):
-	global userpos, userpos_lock
-	userpos_lock[message.from_user.id].acquire()
+	global userpos
 	if userpos[message.from_user.id] >= len(MapPoints):
 		return travel_end(message)
 	markup = quick_markup(
@@ -187,19 +178,19 @@ def travel_next(message: types.Message):
 			else:
 				userpos[message.from_user.id]
 			print(f"Retry \"{MapPoints[userpos[message.from_user.id]].caption}\"")
+			sleep(2)
 	bot.send_message(
 		message.chat.id,
 		MapPoints[userpos[message.from_user.id]].desc,
 		reply_markup=iter
 	)
 	userpos[message.from_user.id] += 1
-	userpos_lock[message.from_user.id].release()
 
 	global Warmed
 	if not Warmed:
 		travel_next.warmed = True
-		for p in MapPoints:
-			travel_next.warmed = travel_next.warmed and p.last_id != None
+		for point in MapPoints:
+			travel_next.warmed = travel_next.warmed and point.last_id != None
 		if travel_next.warmed:
 			print("Warmed")
 			Warmed = True
@@ -210,7 +201,7 @@ def travel_next(message: types.Message):
 		message.text.lower() == 'идём дальше!' and
 		message.from_user.id in userpos.keys() and
 		userpos[message.from_user.id] >= len(MapPoints)
-)
+	)
 def travel_end(message: types.Message):
 	global userpos, userpos_lock
 	userpos_lock[message.from_user.id].acquire()
