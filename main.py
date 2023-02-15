@@ -249,7 +249,7 @@ def hide_kb(message: types.Message):
 	bot.send_message(message.from_user.id, 'Клавиатура убрана.', reply_markup = types.ReplyKeyboardRemove())
 
 @bot.message_handler(
-	func=lambda message: message.text.lower() == 'вернутся'
+	func=lambda message: message.text.lower() == 'вернуться'
 )
 def ret(message: types.Message):
 	global userpos, userpos_lock
@@ -267,7 +267,7 @@ def help(message: types.Message) -> None:
 	markup = types.ReplyKeyboardMarkup()
 	markup.row('Сброс маршрута')
 	markup.row('Скрыть клавиатуру')
-	markup.row('Вернутся')
+	markup.row('Вернуться')
 	bot.send_message(
 		message.from_user.id,
 		'Выбирите действие',
