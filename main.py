@@ -9,28 +9,34 @@ from os import path
 
 bot: TeleBot = TeleBot('5909930778:AAF4IKk3PqYiTq9hTqQZnr7-ZUAXBttkkAk')
 file = 'data.txt'
-userpos_lock: dict[int, Lock] = {}
 userpos: dict[int, int] = {}
 chat_user_accord: dict[int, int] = {}
 MapPoints: list[MapPoint] = []
 Warmed = False
+check_id = None
 iter = types.ReplyKeyboardMarkup()
 iter.row('Идём дальше!')
 iter.row("Помощь")
 
 if __name__ == '__main__':
 	MapPoints = []
+	
+	files: list[str] = []
+
 	with open(file, "r", encoding="utf8") as f:
-		buf = []
-		for s in f:
-			buf.append(s.strip("\n"))
-			if (len(buf) == 4):
+		for l in f:
+			buf = []
+			with open(l.strip(), "r", encoding="utf-8") as df:
+				buf = df.readlines()
+				_DESC = ""
+				for i in buf[3:]:
+					_DESC += i
 				MapPoints.append(
 					MapPoint(
-						CAPTION = buf[0],
-						DESC = buf[1],
-						IMGURL = f"{path.curdir}/{buf[2]}",
-						MAPURL = buf[3]
+						CAPTION = buf[0].strip(),
+						IMGURL = f"{path.curdir}/{buf[1].strip()}",
+						MAPURL = buf[2].strip(),
+						DESC=_DESC.strip()
 					)
 				)
 				buf = []
@@ -41,27 +47,41 @@ if __name__ == '__main__':
 		message.text.lower() == 'начать заново'
 )
 def init_user(message: types.Message):
+	userpos[message.from_user.id] = 0
 	start(message)
 
 @bot.message_handler(
 	commands=['start']
 )
 def start(message: types.Message) -> None:
-	global chat_user_accord, userpos, userpos_lock
+	global chat_user_accord, userpos, check_id
 	print(f"User {message.from_user.id} is known: {message.from_user.id in chat_user_accord.keys()}")
 	markup = types.ReplyKeyboardMarkup()
 	markup.row('Посмотреть маршрут на карте')
 	markup.row('Узнать про объекты')
+	while True:
+		if check_id:
+			bot.send_photo(
+				message.chat.id,
+				check_id,
+				"Чек-лист"
+			)
+			break
+		else:
+			check_id = bot.send_photo(
+				message.chat.id,
+				types.InputFile("check.png"),
+				"Чек-лист"
+			).photo[-1].file_id
+			break
+
 	bot.send_message(
 		message.chat.id,
 		f"Привет, {message.from_user.first_name}! Для того чтобы продолжить, выберите действие",
 		reply_markup=markup
 		)
 	chat_user_accord[message.from_user.id] = message.chat.id
-	userpos_lock[message.from_user.id] = Lock()
-	userpos_lock[message.from_user.id].acquire()
 	userpos[message.from_user.id] = 0
-	userpos_lock[message.from_user.id].release()
 
 @bot.message_handler(
 	content_types=['text'],
@@ -69,9 +89,7 @@ def start(message: types.Message) -> None:
 		message.text.lower() == 'узнать про объекты'
 )
 def travel_begin(message: types.Message):
-	global userpos, userpos_lock
-	
-	userpos_lock[message.from_user.id].acquire()
+	global userpos
 	markup = quick_markup(
 	{
 		"Открыть на карте":
@@ -120,25 +138,24 @@ def travel_begin(message: types.Message):
 	bot.send_message(
 		message.chat.id,
 		MapPoints[userpos[message.from_user.id]].desc,
-		reply_markup=iter
+		reply_markup=iter,
+		parse_mode="markdown"
 	)
 	userpos[message.from_user.id] += 1
-	userpos_lock[message.from_user.id].release()
+	
 
 @bot.message_handler(
 	func=lambda message: message.text.lower() == 'сброс маршрута'
 )
 def travel_reset(message: types.Message):
-	global userpos, userpos_lock
-	
-	userpos_lock[message.from_user.id].acquire()
+	global userpos
 	userpos[message.from_user.id] = 0
 	bot.send_message(
 		message.chat.id,
 		"Маршрут сброшен",
 		reply_markup=iter
 	)
-	userpos_lock[message.from_user.id].release()
+	
 
 @bot.message_handler(
 	content_types=['text'],
@@ -148,8 +165,7 @@ def travel_reset(message: types.Message):
 		userpos[message.from_user.id] < len(MapPoints)
 )
 def travel_next(message: types.Message):
-	global userpos, userpos_lock
-	userpos_lock[message.from_user.id].acquire()
+	global userpos, Warmed	
 	if userpos[message.from_user.id] >= len(MapPoints):
 		return travel_end(message)
 	markup = quick_markup(
@@ -190,17 +206,17 @@ def travel_next(message: types.Message):
 	bot.send_message(
 		message.chat.id,
 		MapPoints[userpos[message.from_user.id]].desc,
-		reply_markup=iter
+		reply_markup=iter,
+		parse_mode="markdown"
 	)
 	userpos[message.from_user.id] += 1
-	userpos_lock[message.from_user.id].release()
-
 	if not Warmed:
-		travel_next.warmed = True
+		warmed = True
 		for p in MapPoints:
-			travel_next.warmed = travel_next.warmed and p.last_id != None
-		if travel_next.warmed:
+			warmed = warmed and p.last_id != None
+		if warmed:
 			print("Warmed")
+			Warmed = True
 
 @bot.message_handler(
 	content_types=['text'],
@@ -210,9 +226,7 @@ def travel_next(message: types.Message):
 		userpos[message.from_user.id] >= len(MapPoints)
 )
 def travel_end(message: types.Message):
-	global userpos, userpos_lock
-	userpos_lock[message.from_user.id].acquire()
-	
+	global userpos	
 	iter = types.ReplyKeyboardMarkup()
 	iter.row('Начать заново')
 	iter.row("Помощь")
@@ -226,8 +240,6 @@ def travel_end(message: types.Message):
 		""",
 		reply_markup=iter
 	)
-	userpos[message.from_user.id] = 0
-	userpos_lock[message.from_user.id].release()
 
 @bot.message_handler(
 	content_types=['text'],
@@ -259,10 +271,9 @@ def hide_kb(message: types.Message):
 	func=lambda message: message.text.lower() == 'вернутся'
 )
 def ret(message: types.Message):
-	global userpos, userpos_lock
-	userpos_lock[message.from_user.id].acquire()
+	global userpos	
 	userpos[message.from_user.id] -= 1
-	userpos_lock[message.from_user.id].release()
+	
 	travel_next(message)
 
 @bot.message_handler(
@@ -274,10 +285,30 @@ def help(message: types.Message) -> None:
 	markup = types.ReplyKeyboardMarkup()
 	markup.row('Сброс маршрута')
 	markup.row('Скрыть клавиатуру')
+	markup.row('Обратная связь')
 	markup.row('Вернутся')
 	bot.send_message(
 		message.from_user.id,
 		'Выбирите действие',
+		reply_markup = markup
+	)
+
+@bot.message_handler(
+	func=lambda message:
+		message.text.lower() == 'обратная связь' or
+		message.text.lower() == '/feedback'
+)
+def feedback(message: types.Message) -> None:
+	markup = quick_markup(
+	{
+		"Написать на почту":
+		{
+			"url": "https://tinyurl.com/3nwxf254"
+		}
+	}, row_width=1)
+	bot.send_message(
+		message.from_user.id,
+		'Нажмите на кнопку ниже для обратной связи',
 		reply_markup = markup
 	)
 
