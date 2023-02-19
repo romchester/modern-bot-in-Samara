@@ -290,7 +290,7 @@ def help(message: types.Message) -> None:
 	markup.row('Сброс маршрута')
 	markup.row('Скрыть клавиатуру')
 	markup.row('Обратная связь')
-	markup.row('Вернутся')
+	markup.row('Вернуться')
 	bot.send_message(
 		message.from_user.id,
 		'Выбирите действие',
