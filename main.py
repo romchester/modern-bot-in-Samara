@@ -3,15 +3,17 @@ from telebot import types, TeleBot
 from telebot.util import quick_markup
 from MapPoint import *
 from os import path
+from time import sleep
+from typing import List, Dict
 
 # https://t.me/SmrModernGuideBot
-# URL of photos is not local for speedup (using user cache)
+# save file_id for speedup (warmup period)
 
 bot: TeleBot = TeleBot('5909930778:AAF4IKk3PqYiTq9hTqQZnr7-ZUAXBttkkAk')
 file = 'data.txt'
 userpos: dict[int, int] = {}
 chat_user_accord: dict[int, int] = {}
-MapPoints: list[MapPoint] = []
+MapPoints: List[MapPoint] = []
 Warmed = False
 check_id = None
 iter = types.ReplyKeyboardMarkup()
@@ -135,6 +137,7 @@ def travel_begin(message: types.Message):
 			else:
 				userpos[message.from_user.id]
 			print(f"Retry \"{MapPoints[userpos[message.from_user.id]].caption}\"")
+			sleep(2)
 	bot.send_message(
 		message.chat.id,
 		MapPoints[userpos[message.from_user.id]].desc,
@@ -203,6 +206,7 @@ def travel_next(message: types.Message):
 			else:
 				userpos[message.from_user.id]
 			print(f"Retry \"{MapPoints[userpos[message.from_user.id]].caption}\"")
+			sleep(2)
 	bot.send_message(
 		message.chat.id,
 		MapPoints[userpos[message.from_user.id]].desc,
@@ -224,7 +228,7 @@ def travel_next(message: types.Message):
 		message.text.lower() == 'идём дальше!' and
 		message.from_user.id in userpos.keys() and
 		userpos[message.from_user.id] >= len(MapPoints)
-)
+	)
 def travel_end(message: types.Message):
 	global userpos	
 	iter = types.ReplyKeyboardMarkup()
@@ -268,7 +272,7 @@ def hide_kb(message: types.Message):
 	bot.send_message(message.from_user.id, 'Клавиатура убрана.', reply_markup = types.ReplyKeyboardRemove())
 
 @bot.message_handler(
-	func=lambda message: message.text.lower() == 'вернутся'
+	func=lambda message: message.text.lower() == 'вернуться'
 )
 def ret(message: types.Message):
 	global userpos	
