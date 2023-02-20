@@ -61,27 +61,28 @@ def start(message: types.Message) -> None:
 	markup = types.ReplyKeyboardMarkup()
 	markup.row('Посмотреть маршрут на карте')
 	markup.row('Узнать про объекты')
+	bot.send_message(
+		message.chat.id,
+		f"Привет, {message.from_user.first_name}! Ниже ты можешь увидеть места, которые посетишь во время экскурсии. Для того чтобы начать жми на кнопку <b>Узнать про объекты</b>",
+		parse_mode="HTML"
+		)
 	while True:
 		if check_id:
 			bot.send_photo(
 				message.chat.id,
 				check_id,
-				"Чек-лист"
+				"Чек-лист",
+				reply_markup=markup
 			)
 			break
 		else:
 			check_id = bot.send_photo(
 				message.chat.id,
 				types.InputFile("check.png"),
-				"Чек-лист"
+				"Чек-лист",
+				reply_markup=markup
 			).photo[-1].file_id
 			break
-
-	bot.send_message(
-		message.chat.id,
-		f"Привет, {message.from_user.first_name}! Для того чтобы продолжить, выберите действие",
-		reply_markup=markup
-		)
 	chat_user_accord[message.from_user.id] = message.chat.id
 	userpos[message.from_user.id] = 0
 
