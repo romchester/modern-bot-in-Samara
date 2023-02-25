@@ -1,4 +1,3 @@
-./data/10.txt
 ./data/1.txt
 ./data/2.txt
 ./data/3.txt
@@ -8,3 +7,4 @@
 ./data/7.txt
 ./data/8.txt
 ./data/9.txt
+./data/10.txt

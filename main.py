@@ -255,7 +255,7 @@ def map_view(message: types.Message):
 	{
 		"Открыть маршрут на карте":
 		{
-			"url": 'https://yandex.ru/maps/-/CCUzZFVK3D',
+			"url": 'https://tinyurl.com/27ezazj6',
 			"callback_data": message.chat.id
 		}
 	}, row_width=1)
